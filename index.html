@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>พิกัดตรวจคำร้อง — การไฟฟ้านากลาง</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root{
+    --navy:#0B2545;
+    --navy-2:#13315C;
+    --volt:#FFC700;
+    --volt-2:#FFD93D;
+    --line:#1E4880;
+    --paper:#F4F7FB;
+    --card:#FFFFFF;
+    --ink:#0B2545;
+    --ink-dim:#5B6B82;
+    --red:#E14B4B;
+    --red-bg:#FDEAEA;
+    --amber:#D98E00;
+    --amber-bg:#FFF4DC;
+    --green:#1F9D55;
+    --green-bg:#E6F7ED;
+    --radius:14px;
+    --shadow: 0 2px 8px rgba(11,37,69,0.08), 0 1px 2px rgba(11,37,69,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Noto Sans Thai','JetBrains Mono',sans-serif;
+    background:
+      radial-gradient(1200px 600px at 100% -10%, #16386b 0%, transparent 60%),
+      var(--navy);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  ::selection{background:var(--volt);color:var(--navy);}
+
+  /* ===== Header ===== */
+  .topbar{
+    background:linear-gradient(180deg, var(--navy) 0%, var(--navy-2) 100%);
+    color:#fff;
+    padding:22px 24px 26px;
+    position:relative;
+    overflow:hidden;
+    border-bottom:3px solid var(--volt);
+  }
+  .topbar::after{
+    content:"";
+    position:absolute; inset:0;
+    background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 28px);
+    pointer-events:none;
+  }
+  .topbar-inner{max-width:1320px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;position:relative;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .bolt{
+    width:44px;height:44px;border-radius:10px;
+    background:var(--volt);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 4px rgba(255,199,0,0.18);
+    flex-shrink:0;
+  }
+  .bolt svg{width:24px;height:24px;}
+  .brand h1{margin:0;font-size:20px;font-weight:800;letter-spacing:0.2px;}
+  .brand p{margin:2px 0 0;font-size:13px;color:#AFC3E3;font-weight:500;}
+  .status-pill{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.14);
+    padding:8px 14px;border-radius:999px;
+    font-size:13px;color:#D7E3F5;font-weight:500;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:#3CD66B;box-shadow:0 0 0 3px rgba(60,214,107,0.25);flex-shrink:0;}
+  .dot.offline{background:var(--red);box-shadow:0 0 0 3px rgba(225,75,75,0.25);}
+  .dot.loading{background:var(--volt);box-shadow:0 0 0 3px rgba(255,199,0,0.25);animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+  /* ===== Layout ===== */
+  .wrap{max-width:1320px;margin:0 auto;padding:20px 24px 60px;}
+  .grid{
+    display:grid;
+    grid-template-columns: minmax(0,1.15fr) minmax(0,1fr);
+    gap:18px;
+    align-items:start;
+  }
+  @media (max-width:980px){ .grid{grid-template-columns:1fr;} }
+
+  .panel{
+    background:var(--card);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .panel-head{
+    padding:16px 18px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    border-bottom:1px solid #EAEFF6;
+    flex-wrap:wrap;
+  }
+  .panel-head h2{margin:0;font-size:15px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:8px;}
+  .panel-head .count{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;font-weight:700;color:var(--navy);
+    background:#EEF3FB;padding:3px 9px;border-radius:7px;
+  }
+
+  /* ===== Table ===== */
+  .table-scroll{max-height:74vh;overflow:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  thead th{
+    position:sticky;top:0;z-index:2;
+    background:#F7F9FC;
+    text-align:left;
+    padding:10px 12px;
+    font-size:11.5px;letter-spacing:0.4px;
+    color:var(--ink-dim);
+    font-weight:700;
+    border-bottom:1px solid #E4EAF3;
+    white-space:nowrap;
+  }
+  thead th.num{text-align:center;width:34px;}
+  thead th.chk{width:38px;text-align:center;}
+  tbody td{padding:10px 12px;border-bottom:1px solid #EFF3F8;vertical-align:top;}
+  tbody tr{cursor:pointer;transition:background .12s ease;}
+  tbody tr:hover{background:#F4F8FF;}
+  tbody tr.selected{background:#FFF8E1;}
+  tbody tr.selected:hover{background:#FFF3CC;}
+  td.num{text-align:center;font-family:'JetBrains Mono',monospace;color:var(--ink-dim);font-weight:600;font-size:12px;}
+  td.chk{text-align:center;}
+  .req-id{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--navy);font-size:12.5px;}
+  .req-name{font-weight:600;color:var(--ink);}
+  .req-addr{color:var(--ink-dim);font-size:12.5px;margin-top:2px;}
+  .req-dist{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink-dim);white-space:nowrap;}
+  .badge{
+    display:inline-block;padding:3px 10px;border-radius:999px;
+    font-size:11.5px;font-weight:700;white-space:nowrap;
+  }
+  .badge.red{background:var(--red-bg);color:var(--red);}
+  .badge.amber{background:var(--amber-bg);color:var(--amber);}
+  .badge.green{background:var(--green-bg);color:var(--green);}
+  .badge.gray{background:#EEF1F5;color:var(--ink-dim);}
+  input[type="checkbox"]{
+    width:17px;height:17px;accent-color:var(--navy);cursor:pointer;
+  }
+
+  /* ===== Map panel ===== */
+  #map{height:420px;width:100%;background:#dde6f0;}
+  .map-meta{padding:14px 18px;border-top:1px solid #EAEFF6;}
+  .map-meta-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-dim);padding:3px 0;}
+  .map-meta-row b{color:var(--navy);font-family:'JetBrains Mono',monospace;}
+
+  /* ===== Route panel ===== */
+  .route-box{padding:16px 18px;}
+  .route-empty{
+    text-align:center;padding:34px 14px;color:var(--ink-dim);font-size:13.5px;
+    border:1.5px dashed #D7E0EC;border-radius:10px;
+  }
+  .route-steps{list-style:none;margin:0;padding:0;}
+  .route-step{
+    display:flex;gap:12px;padding:10px 0;
+    border-bottom:1px dashed #E7ECF3;
+    position:relative;
+  }
+  .route-step:last-child{border-bottom:none;}
+  .step-marker{
+    width:26px;height:26px;border-radius:50%;
+    background:var(--navy);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11.5px;font-weight:800;flex-shrink:0;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .step-marker.start, .step-marker.end{background:var(--volt);color:var(--navy);}
+  .step-body{flex:1;min-width:0;}
+  .step-name{font-weight:700;font-size:13.5px;color:var(--ink);}
+  .step-sub{font-size:12px;color:var(--ink-dim);margin-top:1px;}
+  .step-leg{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--navy-2);font-weight:600;margin-top:3px;}
+
+  .route-summary{
+    display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;
+  }
+  .sum-card{
+    flex:1;min-width:120px;
+    background:#F7F9FC;border-radius:10px;padding:10px 12px;
+  }
+  .sum-card .v{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:18px;color:var(--navy);}
+  .sum-card .l{font-size:11px;color:var(--ink-dim);font-weight:600;margin-top:1px;}
+
+  .actions{display:flex;gap:10px;padding:0 18px 18px;flex-wrap:wrap;}
+  .btn{
+    border:none;border-radius:10px;padding:11px 18px;font-size:13.5px;font-weight:700;
+    cursor:pointer;display:flex;align-items:center;gap:8px;
+    font-family:inherit;transition:transform .08s ease, box-shadow .15s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--volt);color:var(--navy);box-shadow:0 2px 0 #C99A00;}
+  .btn-primary:hover{background:var(--volt-2);}
+  .btn-primary:disabled{background:#E6E9EE;color:#A7AEBA;box-shadow:none;cursor:not-allowed;}
+  .btn-outline{background:#fff;color:var(--navy);border:1.5px solid #D7E0EC;}
+  .btn-outline:hover{border-color:var(--navy);}
+  .btn-outline:disabled{color:#B6BECB;cursor:not-allowed;border-color:#E6E9EE;}
+  .btn svg{width:16px;height:16px;flex-shrink:0;}
+
+  .toolbar{padding:12px 18px;border-bottom:1px solid #EAEFF6;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .toolbar input[type="search"]{
+    flex:1;min-width:160px;
+    border:1.5px solid #E0E6EF;border-radius:9px;padding:8px 12px;font-size:13px;
+    font-family:inherit;outline:none;
+  }
+  .toolbar input[type="search"]:focus{border-color:var(--navy);}
+  .toolbar select{
+    border:1.5px solid #E0E6EF;border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;background:#fff;color:var(--ink);
+  }
+  .link-btn{background:none;border:none;color:var(--navy-2);font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:underline;padding:0;font-family:inherit;}
+
+  .empty-state{padding:40px 20px;text-align:center;color:var(--ink-dim);}
+  .empty-state svg{width:40px;height:40px;opacity:0.35;margin-bottom:10px;}
+  .err-state{padding:18px;background:var(--red-bg);color:var(--red);border-radius:10px;margin:18px;font-size:13px;line-height:1.6;}
+
+  .leaflet-popup-content{font-family:'Noto Sans Thai',sans-serif;font-size:13px;}
+  .leaflet-popup-content b{color:var(--navy);}
+
+  .legend-row{display:flex;gap:14px;flex-wrap:wrap;padding:10px 18px 0;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-dim);}
+  .legend-dot{width:10px;height:10px;border-radius:50%;}
+
+  footer{text-align:center;padding:20px;color:#7A93BD;font-size:12px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="bolt">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="#0B2545"/></svg>
+      </div>
+      <div>
+        <h1>พิกัดตรวจคำร้องภาพรวม</h1>
+        <p>การไฟฟ้าส่วนภูมิภาคนากลาง · เรียงระยะทางจากจุดเริ่มต้น</p>
+      </div>
+    </div>
+    <div class="status-pill">
+      <span class="dot loading" id="statusDot"></span>
+      <span id="statusText">กำลังโหลดข้อมูล…</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="grid">
+
+    <!-- LEFT: Table -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B2545" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          รายการคำร้อง
+        </h2>
+        <span class="count" id="rowCount">0 รายการ</span>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="searchBox" placeholder="ค้นหาชื่อ, เลขที่คำร้อง, ตำบล…">
+        <select id="statusFilter">
+          <option value="">ทุกสถานะ</option>
+        </select>
+        <button class="link-btn" id="selectAllBtn">เลือกทั้งหมด</button>
+        <button class="link-btn" id="clearAllBtn">ล้างที่เลือก</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th class="chk"></th>
+              <th class="num">#</th>
+              <th>เลขที่คำร้อง</th>
+              <th>ผู้ขอใช้ไฟ / ที่อยู่</th>
+              <th>ระยะจาก กฟฟ.</th>
+              <th>สถานะ</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="6"><div class="empty-state">กำลังโหลดข้อมูลจาก Google Sheet…</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: Map + Route -->
+    <div style="display:flex;flex-direction:column;gap:18px;">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B2545" stroke-width="2"><path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+            แผนที่ภาพรวม
+          </h2>
+        </div>
+        <div id="map"></div>
+        <div class="legend-row">
+          <div class="legend-item"><span class="legend-dot" style="background:#FFC700;"></span>การไฟฟ้านากลาง</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#0B2545;"></span>คำร้องที่เลือก</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#B9C4D4;"></span>คำร้องอื่น</div>
+        </div>
+        <div class="map-meta">
+          <div class="map-meta-row"><span>จุดเริ่มต้น</span><b>17.294084, 102.228941</b></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0B2545" stroke-width="2"><path d="M9 11a2 2 0 104 0 2 2 0 00-4 0z"/><path d="M12 21s7-7.21 7-12a7 7 0 10-14 0c0 4.79 7 12 7 12z"/></svg>
+            เส้นทางแนะนำ
+          </h2>
+          <span class="count" id="selCount">เลือก 0 จุด</span>
+        </div>
+        <div class="route-box" id="routeBox">
+          <div class="route-empty">
+            ติ๊กเลือกคำร้องในตารางทางซ้าย<br>เพื่อสร้างเส้นทางตรวจที่สั้นที่สุด
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="planBtn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+            แนะนำเส้นทาง
+          </button>
+          <button class="btn btn-outline" id="navBtn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11a2 2 0 104 0 2 2 0 00-4 0z"/><path d="M12 21s7-7.21 7-12a7 7 0 10-14 0c0 4.79 7 12 7 12z"/></svg>
+            นำทางด้วย Google Maps
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>ข้อมูลคำร้องดึงจาก Google Sheet แบบเรียลไทม์ · ระยะทางคำนวณแบบเส้นตรง (ไม่ใช่ระยะถนนจริง)</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ========================= CONFIG ========================= */
+const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxfnVSWtYD7NeS5pyPlO0UAfCP7wX7cgA0ehyQQ25PHnmin9MSOi__pK8a_0fekSXw/exec";
+const DEPOT = { lat: 17.2940843, lng: 102.2289412, name: "การไฟฟ้านากลาง" };
+
+/* ========================= STATE ========================= */
+let allRequests = [];      // full parsed dataset, sorted by distance from depot
+let filteredRequests = [];
+let selectedIds = new Set();
+let map, depotMarker;
+let markerLayer = L.layerGroup();
+let routeLine = null;
+
+/* ========================= UTIL ========================= */
+function haversine(lat1, lng1, lat2, lng2){
+  const R = 6371; // km
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function parseLatLng(raw){
+  if(!raw) return null;
+  const parts = String(raw).split(",").map(s => parseFloat(s.trim()));
+  if(parts.length !== 2 || parts.some(isNaN)) return null;
+  return { lat: parts[0], lng: parts[1] };
+}
+
+function statusClass(status){
+  const s = (status || "").toString();
+  if(s.includes("🔴") || s.includes("รอสำรวจ")) return "red";
+  if(s.includes("🟡") || s.includes("ไม่ผ่าน")) return "amber";
+  if(s.includes("🟢") || s.includes("ผ่าน") || s.includes("เสร็จ")) return "green";
+  return "gray";
+}
+
+function cleanStatusText(status){
+  return (status || "ไม่ระบุ").toString().replace(/[🔴🟡🟢]/g, "").trim() || "ไม่ระบุ";
+}
+
+function fmtDist(km){
+  if(km < 1) return Math.round(km*1000) + " ม.";
+  return km.toFixed(1) + " กม.";
+}
+
+/* ========================= LOAD DATA ========================= */
+async function loadData(){
+  setStatus("loading", "กำลังโหลดข้อมูล…");
+  try{
+    const res = await fetch(SHEET_API_URL, { method: "GET" });
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const raw = await res.json();
+    if(!Array.isArray(raw)) throw new Error("รูปแบบข้อมูลไม่ถูกต้อง");
+
+    const parsed = raw.map((row, idx) => {
+      const coord = parseLatLng(row["พิกัด"]);
+      return {
+        rowIndex: idx,
+        id: row["เลขที่คำร้อง"] || ("ไม่มีเลขที่-" + idx),
+        name: row["ชื่อผู้ขอใช้ไฟ"] || "ไม่ระบุชื่อ",
+        houseNo: row["เลขที่"] || "",
+        moo: row["หมู่"] || "",
+        tambon: row["ตำบล"] || "",
+        amphoe: row["อำเภอ"] || "",
+        phone: row["โทรศัพท์"] || "",
+        status: row["สถานะ"] || "",
+        coord: coord,
+        coordRaw: row["พิกัด"] || ""
+      };
+    }).filter(r => r.coord !== null); // skip rows with bad/missing coordinates
+
+    // distance from depot + sort ascending
+    parsed.forEach(r => { r.distFromDepot = haversine(DEPOT.lat, DEPOT.lng, r.coord.lat, r.coord.lng); });
+    parsed.sort((a,b) => a.distFromDepot - b.distFromDepot);
+
+    allRequests = parsed;
+    filteredRequests = parsed;
+
+    populateStatusFilter();
+    renderTable();
+    renderBaseMap();
+    setStatus("online", `เชื่อมต่อสำเร็จ · ${parsed.length} คำร้อง`);
+  }catch(err){
+    console.error(err);
+    setStatus("offline", "เชื่อมต่อไม่สำเร็จ");
+    document.getElementById("tableBody").innerHTML =
+      `<tr><td colspan="6"><div class="err-state">
+        ดึงข้อมูลจาก Google Sheet ไม่สำเร็จ<br>
+        กรุณาตรวจสอบว่า Apps Script เผยแพร่แบบ "Anyone" และ URL ถูกต้อง<br>
+        <span style="opacity:0.7;font-size:11.5px;">${(err.message||"").toString()}</span>
+      </div></td></tr>`;
+  }
+}
+
+function setStatus(kind, text){
+  const dot = document.getElementById("statusDot");
+  const t = document.getElementById("statusText");
+  dot.className = "dot" + (kind === "online" ? "" : " " + kind);
+  t.textContent = text;
+}
+
+function populateStatusFilter(){
+  const sel = document.getElementById("statusFilter");
+  const statuses = [...new Set(allRequests.map(r => cleanStatusText(r.status)))];
+  statuses.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s; opt.textContent = s;
+    sel.appendChild(opt);
+  });
+}
+
+/* ========================= TABLE ========================= */
+function renderTable(){
+  const tbody = document.getElementById("tableBody");
+  document.getElementById("rowCount").textContent = filteredRequests.length + " รายการ";
+
+  if(filteredRequests.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">ไม่พบคำร้องที่ตรงกับเงื่อนไข</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filteredRequests.map((r, i) => {
+    const addr = [r.houseNo && ("เลขที่ "+r.houseNo), r.moo && ("หมู่ "+r.moo), r.tambon, r.amphoe].filter(Boolean).join(" · ");
+    const checked = selectedIds.has(r.id) ? "checked" : "";
+    const rowSel = selectedIds.has(r.id) ? "selected" : "";
+    return `
+      <tr class="${rowSel}" data-id="${escapeHtml(r.id)}">
+        <td class="chk"><input type="checkbox" ${checked} data-id="${escapeHtml(r.id)}"></td>
+        <td class="num">${i+1}</td>
+        <td><span class="req-id">${escapeHtml(r.id)}</span></td>
+        <td>
+          <div class="req-name">${escapeHtml(r.name)}</div>
+          <div class="req-addr">${escapeHtml(addr || "ไม่ระบุที่อยู่")}</div>
+        </td>
+        <td class="req-dist">${fmtDist(r.distFromDepot)}</td>
+        <td><span class="badge ${statusClass(r.status)}">${escapeHtml(cleanStatusText(r.status))}</span></td>
+      </tr>`;
+  }).join("");
+
+  // row click toggles checkbox (except clicking the checkbox itself, handled natively)
+  tbody.querySelectorAll("tr[data-id]").forEach(tr => {
+    tr.addEventListener("click", (e) => {
+      if(e.target.tagName === "INPUT") return;
+      const id = tr.getAttribute("data-id");
+      toggleSelect(id);
+    });
+  });
+  tbody.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleSelect(cb.getAttribute("data-id"));
+    });
+  });
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function toggleSelect(id){
+  if(selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  renderTable();
+  renderBaseMap();
+  updateSelectionUI();
+}
+
+/* ========================= FILTER / SEARCH ========================= */
+document.getElementById("searchBox").addEventListener("input", applyFilters);
+document.getElementById("statusFilter").addEventListener("change", applyFilters);
+
+function applyFilters(){
+  const q = document.getElementById("searchBox").value.trim().toLowerCase();
+  const st = document.getElementById("statusFilter").value;
+  filteredRequests = allRequests.filter(r => {
+    const matchesQ = !q || [r.id, r.name, r.tambon, r.amphoe, r.houseNo].some(v => String(v).toLowerCase().includes(q));
+    const matchesSt = !st || cleanStatusText(r.status) === st;
+    return matchesQ && matchesSt;
+  });
+  renderTable();
+}
+
+document.getElementById("selectAllBtn").addEventListener("click", () => {
+  filteredRequests.forEach(r => selectedIds.add(r.id));
+  renderTable(); renderBaseMap(); updateSelectionUI();
+});
+document.getElementById("clearAllBtn").addEventListener("click", () => {
+  selectedIds.clear();
+  renderTable(); renderBaseMap(); updateSelectionUI();
+  clearRoute();
+});
+
+/* ========================= MAP ========================= */
+function renderBaseMap(){
+  if(!map){
+    map = L.map('map', { scrollWheelZoom:true }).setView([DEPOT.lat, DEPOT.lng], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+    markerLayer.addTo(map);
+
+    const depotIcon = L.divIcon({
+      className: '',
+      html: `<div style="width:30px;height:30px;border-radius:50%;background:#FFC700;border:3px solid #0B2545;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;">⚡</div>`,
+      iconSize: [30,30], iconAnchor: [15,15]
+    });
+    depotMarker = L.marker([DEPOT.lat, DEPOT.lng], { icon: depotIcon })
+      .bindPopup(`<b>${DEPOT.name}</b><br>จุดเริ่มต้นเส้นทาง`)
+      .addTo(map);
+  }
+
+  markerLayer.clearLayers();
+
+  allRequests.forEach(r => {
+    const isSelected = selectedIds.has(r.id);
+    const color = isSelected ? "#0B2545" : "#B9C4D4";
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:20px;height:20px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`,
+      iconSize: [20,20], iconAnchor: [10,20]
+    });
+    const m = L.marker([r.coord.lat, r.coord.lng], { icon })
+      .bindPopup(`<b>${escapeHtml(r.name)}</b><br>${escapeHtml(r.id)}<br>ระยะจาก กฟฟ.: ${fmtDist(r.distFromDepot)}`);
+    m.on('click', () => toggleSelect(r.id));
+    markerLayer.addLayer(m);
+  });
+}
+
+/* ========================= SELECTION UI ========================= */
+function updateSelectionUI(){
+  const n = selectedIds.size;
+  document.getElementById("selCount").textContent = "เลือก " + n + " จุด";
+  document.getElementById("planBtn").disabled = n === 0;
+  document.getElementById("navBtn").disabled = n === 0;
+  if(n === 0){
+    document.getElementById("routeBox").innerHTML = `<div class="route-empty">ติ๊กเลือกคำร้องในตารางทางซ้าย<br>เพื่อสร้างเส้นทางตรวจที่สั้นที่สุด</div>`;
+  }
+}
+
+/* ========================= ROUTE PLANNING (Nearest Neighbor) ========================= */
+function planRoute(){
+  const points = allRequests.filter(r => selectedIds.has(r.id));
+  if(points.length === 0) return;
+
+  // Nearest-neighbor heuristic starting & ending at depot
+  const unvisited = [...points];
+  const route = [];
+  let current = { coord: DEPOT };
+
+  while(unvisited.length){
+    let bestIdx = 0, bestDist = Infinity;
+    unvisited.forEach((p, i) => {
+      const d = haversine(current.coord.lat, current.coord.lng, p.coord.lat, p.coord.lng);
+      if(d < bestDist){ bestDist = d; bestIdx = i; }
+    });
+    const next = unvisited.splice(bestIdx, 1)[0];
+    route.push({ point: next, legDist: bestDist });
+    current = next;
+  }
+  const lastLeg = haversine(current.coord.lat, current.coord.lng, DEPOT.lat, DEPOT.lng);
+
+  renderRoute(route, lastLeg);
+  drawRouteOnMap(route);
+}
+
+function renderRoute(route, lastLeg){
+  const totalDist = route.reduce((s,r) => s + r.legDist, 0) + lastLeg;
+  const avgSpeedKmh = 30; // rough estimate for rural roads
+  const estMinutes = Math.round((totalDist / avgSpeedKmh) * 60);
+
+  let html = `<ul class="route-steps">`;
+  html += `
+    <li class="route-step">
+      <div class="step-marker start">S</div>
+      <div class="step-body">
+        <div class="step-name">${DEPOT.name}</div>
+        <div class="step-sub">จุดเริ่มต้น</div>
+      </div>
+    </li>`;
+
+  route.forEach((r, i) => {
+    const addr = [r.point.tambon, r.point.amphoe].filter(Boolean).join(" ");
+    html += `
+      <li class="route-step">
+        <div class="step-marker">${i+1}</div>
+        <div class="step-body">
+          <div class="step-name">${escapeHtml(r.point.name)}</div>
+          <div class="step-sub">${escapeHtml(r.point.id)} · ${escapeHtml(addr)}</div>
+          <div class="step-leg">→ ${fmtDist(r.legDist)} จากจุดก่อนหน้า</div>
+        </div>
+      </li>`;
+  });
+
+  html += `
+    <li class="route-step">
+      <div class="step-marker end">F</div>
+      <div class="step-body">
+        <div class="step-name">${DEPOT.name}</div>
+        <div class="step-sub">กลับจุดเริ่มต้น</div>
+        <div class="step-leg">→ ${fmtDist(lastLeg)} จากจุดก่อนหน้า</div>
+      </div>
+    </li>`;
+  html += `</ul>`;
+
+  html += `
+    <div class="route-summary">
+      <div class="sum-card"><div class="v">${fmtDist(totalDist)}</div><div class="l">ระยะทางรวม</div></div>
+      <div class="sum-card"><div class="v">${route.length}</div><div class="l">จุดที่ตรวจ</div></div>
+      <div class="sum-card"><div class="v">~${estMinutes} นาที</div><div class="l">เวลาโดยประมาณ</div></div>
+    </div>`;
+
+  document.getElementById("routeBox").innerHTML = html;
+}
+
+function drawRouteOnMap(route){
+  if(routeLine){ map.removeLayer(routeLine); routeLine = null; }
+  const latlngs = [[DEPOT.lat, DEPOT.lng], ...route.map(r => [r.point.coord.lat, r.point.coord.lng]), [DEPOT.lat, DEPOT.lng]];
+  routeLine = L.polyline(latlngs, { color: '#0B2545', weight: 3, dashArray: '6 6', opacity: 0.85 }).addTo(map);
+  map.fitBounds(routeLine.getBounds(), { padding: [30,30] });
+}
+
+function clearRoute(){
+  if(routeLine){ map.removeLayer(routeLine); routeLine = null; }
+}
+
+/* ========================= NAVIGATE BUTTON ========================= */
+function openGoogleMapsNav(){
+  const points = allRequests.filter(r => selectedIds.has(r.id));
+  if(points.length === 0) return;
+
+  // Use planned (nearest-neighbor) order if a route box has steps rendered; otherwise table order
+  const orderedIds = Array.from(document.querySelectorAll('.route-steps .step-sub'))
+    .map(el => el.textContent.split('·')[0].trim());
+
+  let ordered;
+  if(orderedIds.length === points.length){
+    ordered = orderedIds.map(id => points.find(p => p.id === id)).filter(Boolean);
+  } else {
+    ordered = points; // fallback: selection order from table
+  }
+
+  const origin = `${DEPOT.lat},${DEPOT.lng}`;
+  const destination = origin; // round trip back to depot
+  const waypoints = ordered.map(p => `${p.coord.lat},${p.coord.lng}`).join("|");
+
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${encodeURIComponent(waypoints)}&travelmode=driving`;
+  window.open(url, "_blank");
+}
+
+document.getElementById("planBtn").addEventListener("click", planRoute);
+document.getElementById("navBtn").addEventListener("click", openGoogleMapsNav);
+
+/* ========================= INIT ========================= */
+loadData();
+</script>
+</body>
+</html>
