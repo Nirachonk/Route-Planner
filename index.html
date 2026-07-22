@@ -379,6 +379,7 @@
 <script>
 /* ========================= CONFIG ========================= */
 const SHEET_API_URL = "https://script.google.com/macros/s/AKfycbxfnVSWtYD7NeS5pyPlO0UAfCP7wX7cgA0ehyQQ25PHnmin9MSOi__pK8a_0fekSXw/exec";
+let routeOrder = []; // ordered array of request IDs after planRoute() — used to number map markers
 const DEPOT = { lat: 17.2940843, lng: 102.2289412, name: "การไฟฟ้านากลาง" };
 
 /* ========================= STATE ========================= */
@@ -604,8 +605,8 @@ document.getElementById("selectAllBtn").addEventListener("click", () => {
 });
 document.getElementById("clearAllBtn").addEventListener("click", () => {
   selectedIds.clear();
-  renderTable(); renderBaseMap(); updateSelectionUI();
   clearRoute();
+  renderTable(); renderBaseMap(); updateSelectionUI();
 });
 
 /* ========================= MAP ========================= */
@@ -630,16 +631,49 @@ function renderBaseMap(){
 
   markerLayer.clearLayers();
 
+  // Build a lookup: id → route step number (1-based), only after planRoute is done
+  const routeNumMap = {};
+  routeOrder.forEach((id, idx) => { routeNumMap[id] = idx + 1; });
+  const hasRoute = routeOrder.length > 0;
+
   allRequests.forEach(r => {
     const isSelected = selectedIds.has(r.id);
-    const color = isSelected ? "#E03E3E" : "#B9C4D4";
-    const icon = L.divIcon({
-      className: '',
-      html: `<div style="width:20px;height:20px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`,
-      iconSize: [20,20], iconAnchor: [10,20]
-    });
+    const stepNum = routeNumMap[r.id]; // undefined if not in route or no route yet
+
+    let iconHtml;
+    if(isSelected && hasRoute && stepNum !== undefined){
+      // Numbered circle matching the route step
+      iconHtml = `
+        <div style="
+          width:30px;height:30px;border-radius:50%;
+          background:#E03E3E;border:3px solid #fff;
+          box-shadow:0 2px 8px rgba(224,62,62,0.55);
+          display:flex;align-items:center;justify-content:center;
+          font-size:13px;font-weight:800;color:#fff;
+          font-family:'JetBrains Mono',monospace;
+          position:relative;">
+          ${stepNum}
+        </div>`;
+    } else if(isSelected){
+      // Selected but no route computed yet — plain red teardrop
+      iconHtml = `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#E03E3E;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`;
+    } else {
+      // Unselected — grey teardrop
+      iconHtml = `<div style="width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#B9C4D4;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>`;
+    }
+
+    const iconSize  = (isSelected && hasRoute && stepNum) ? [30,30] : isSelected ? [22,22] : [18,18];
+    const iconAnchor = (isSelected && hasRoute && stepNum) ? [15,15] : isSelected ? [11,22] : [9,18];
+
+    const icon = L.divIcon({ className:'', html: iconHtml, iconSize, iconAnchor });
+
+    const popupLabel = (isSelected && hasRoute && stepNum)
+      ? `<span style="background:#E03E3E;color:#fff;border-radius:5px;padding:1px 7px;font-weight:800;font-size:12px;margin-right:5px;">ลำดับที่ ${stepNum}</span>`
+      : "";
+    const popup = `${popupLabel}<b>${escapeHtml(r.name)}</b><br><span style="font-size:11px;color:#666;">${escapeHtml(r.id)}</span><br>ระยะจาก กฟฟ.: ${fmtDist(r.distFromDepot)}`;
+
     const m = L.marker([r.coord.lat, r.coord.lng], { icon })
-      .bindPopup(`<b>${escapeHtml(r.name)}</b><br>${escapeHtml(r.id)}<br>ระยะจาก กฟฟ.: ${fmtDist(r.distFromDepot)}`);
+      .bindPopup(popup);
     m.on('click', () => toggleSelect(r.id));
     markerLayer.addLayer(m);
   });
@@ -678,8 +712,12 @@ function planRoute(){
   }
   const lastLeg = haversine(current.coord.lat, current.coord.lng, DEPOT.lat, DEPOT.lng);
 
+  // Save ordered IDs so map markers can show step numbers
+  routeOrder = route.map(r => r.point.id);
+
   renderRoute(route, lastLeg);
   drawRouteOnMap(route);
+  renderBaseMap(); // re-render markers with route numbers
 }
 
 function renderRoute(route, lastLeg){
@@ -740,6 +778,7 @@ function drawRouteOnMap(route){
 
 function clearRoute(){
   if(routeLine){ map.removeLayer(routeLine); routeLine = null; }
+  routeOrder = [];
 }
 
 /* ========================= NAVIGATE BUTTON ========================= */
