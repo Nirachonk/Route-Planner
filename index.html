@@ -2,7 +2,10 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0A1628">
 <title>Smart Route Planner — การไฟฟ้านากลาง</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -150,8 +153,20 @@
     width:17px;height:17px;accent-color:var(--navy);cursor:pointer;
   }
 
+  /* ===== Map+Route grid ===== */
+  .map-route-grid{
+    display:grid;
+    grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
+    gap:18px;
+    align-items:start;
+  }
+  @media(max-width:768px){
+    .map-route-grid{ grid-template-columns:1fr; }
+  }
+
   /* ===== Map panel ===== */
   #map{height:560px;width:100%;background:#dde6f0;}
+  @media(max-width:768px){ #map{ height:52vw; min-height:220px; max-height:320px; } }
   .map-meta{padding:14px 18px;border-top:1px solid #EAEFF6;}
   .map-meta-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-dim);padding:3px 0;}
   .map-meta-row b{color:var(--navy);font-family:'JetBrains Mono',monospace;}
@@ -238,6 +253,90 @@
   .legend-dot{width:10px;height:10px;border-radius:50%;}
 
   footer{text-align:center;padding:20px;color:#5B7DAF;font-size:12px;}
+
+  /* ===== MOBILE RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    /* Header compact */
+    .topbar{ padding:14px 16px 16px; }
+    .topbar-inner{ gap:10px; }
+    .brand h1{ font-size:16px; }
+    .brand p{ font-size:11px; }
+    .bolt{ width:36px; height:36px; border-radius:10px; }
+    .bolt svg{ width:20px; height:20px; }
+    .status-pill{ padding:6px 10px; font-size:11.5px; }
+
+    /* Layout single column */
+    .wrap{ padding:12px 12px 40px; }
+
+    /* Panel headers compact */
+    .panel-head{ padding: 12px 14px; }
+    .panel-head h2{ font-size: 13.5px; }
+    .panel-head .count{ font-size: 11px; padding: 2px 7px; }
+
+    /* Route panel */
+    .route-box{ padding: 12px 14px; }
+    .route-empty{ padding: 20px 10px; font-size: 13px; }
+    .step-name{ font-size: 13px; }
+    .step-sub{ font-size: 11.5px; }
+    .sum-card .v{ font-size: 16px; }
+
+    /* Action buttons full width */
+    .actions{ padding: 0 14px 14px; gap: 8px; }
+    .btn{ padding: 12px 14px; font-size: 13px; flex: 1; justify-content: center; }
+
+    /* Toolbar responsive */
+    .toolbar{ padding: 10px 12px; gap: 6px; }
+    .toolbar input[type="search"]{ min-width: 0; font-size: 13px; padding: 8px 10px; }
+    .toolbar select{ font-size: 13px; padding: 8px 8px; }
+    .link-btn{ font-size: 12px; }
+
+    /* Table: hide less-important columns, enlarge tap targets */
+    thead th, tbody td { padding: 10px 8px; }
+    .req-id { font-size: 11.5px; }
+    .req-name { font-size: 13px; }
+    .req-addr { font-size: 11.5px; }
+    .req-dist { display: none; }
+    thead th:nth-child(5) { display: none; } /* hide dist header */
+    .badge { font-size: 11px; padding: 3px 8px; }
+    input[type="checkbox"]{ width: 19px; height: 19px; }
+    .detail-btn{ padding: 6px 10px; font-size: 12px; }
+
+    /* Table scroll height */
+    .table-scroll{ max-height: 44vh; }
+
+    /* Map legend compact */
+    .legend-row{ gap: 8px; padding: 8px 12px 0; }
+    .legend-item{ font-size: 11px; }
+    .map-meta{ padding: 10px 14px; }
+    .map-meta-row{ font-size: 12px; }
+
+    /* Modal full screen on mobile */
+    #detailModal > div {
+      width: 100% !important;
+      max-width: 100% !important;
+      border-radius: 20px 20px 0 0 !important;
+      margin-top: auto !important;
+      position: fixed !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      max-height: 85vh !important;
+      overflow-y: auto !important;
+    }
+    #detailModal {
+      align-items: flex-end !important;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .brand h1{ font-size: 14px; }
+    .topbar{ padding: 12px 12px 14px; }
+    #map{ height: 56vw; min-height: 200px; }
+    .btn{ font-size: 12px; padding: 11px 10px; }
+    /* Stack status pill to new line */
+    .topbar-inner{ flex-direction: column; align-items: flex-start; }
+    .status-pill{ align-self: flex-start; }
+  }
 </style>
 </head>
 <body>
@@ -264,7 +363,7 @@
   <div class="grid">
 
     <!-- TOP ROW: Map + Route side by side -->
-    <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start;">
+    <div class="map-route-grid">
 
       <!-- Map Panel -->
       <div class="panel">
@@ -414,6 +513,18 @@ function statusClass(status){
   return "gray";
 }
 
+// ตัดคำนำหน้าและนามสกุล เหลือเฉพาะชื่อตัว
+const PREFIXES = [
+  "นาย","นาง สาว","นางสาว","น\.ส\.","นาง","ด\.ช\.","ด\.ญ\.","ดช\.","ดญ\.","ดร\.","นพ\.","พญ\.","ทพ\.","ภก\.","ร\.ต\.","ร\.ท\.","ร\.อ\.","ส\.ต\.","ส\.ท\.","ส\.อ\.","จ\.ส\.ต\.","จ\.ส\.ท\.","จ\.ส\.อ\."
+];
+const PREFIX_RE = new RegExp("^\\s*(" + PREFIXES.join("|") + ")\\s*", "u");
+function firstName(fullName){
+  if(!fullName) return "";
+  const s = String(fullName).trim().replace(PREFIX_RE, ""); // ตัดคำนำหน้า
+  const parts = s.trim().split(/\s+/);
+  return parts[0] || s; // คืนเฉพาะคำแรก (ชื่อตัว)
+}
+
 function cleanStatusText(status){
   return (status || "ไม่ระบุ").toString().replace(/[🔴🟡🟢]/g, "").trim() || "ไม่ระบุ";
 }
@@ -509,7 +620,7 @@ function renderTable(){
         <td class="num">${i+1}</td>
         <td><span class="req-id">${escapeHtml(r.id)}</span></td>
         <td>
-          <div class="req-name">${escapeHtml(r.name)}</div>
+          <div class="req-name">${escapeHtml(firstName(r.name))}</div>
           <div class="req-addr">${escapeHtml(addr || "ไม่ระบุที่อยู่")}</div>
         </td>
         <td class="req-dist">${fmtDist(r.distFromDepot)}</td>
@@ -613,9 +724,11 @@ document.getElementById("clearAllBtn").addEventListener("click", () => {
 function renderBaseMap(){
   if(!map){
     map = L.map('map', { scrollWheelZoom:true }).setView([DEPOT.lat, DEPOT.lng], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 19
+    // Use CartoDB Positron — works from file:/// (no Referer restriction)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20
     }).addTo(map);
     markerLayer.addTo(map);
 
@@ -640,14 +753,19 @@ function renderBaseMap(){
     const isSelected = selectedIds.has(r.id);
     const stepNum = routeNumMap[r.id]; // undefined if not in route or no route yet
 
+    const sCls = statusClass(r.status); // red | amber | green | gray
+
     let iconHtml;
+    const selColor = sCls==="amber" ? "#D98E00" : sCls==="green" ? "#1F9D55" : "#E03E3E";
+    const selShadowRgb = sCls==="amber" ? "217,142,0" : sCls==="green" ? "31,157,85" : "224,62,62";
+
     if(isSelected && hasRoute && stepNum !== undefined){
       // Numbered circle matching the route step
       iconHtml = `
         <div style="
           width:30px;height:30px;border-radius:50%;
-          background:#E03E3E;border:3px solid #fff;
-          box-shadow:0 2px 8px rgba(224,62,62,0.55);
+          background:${selColor};border:3px solid #fff;
+          box-shadow:0 2px 8px rgba(${selShadowRgb},0.55);
           display:flex;align-items:center;justify-content:center;
           font-size:13px;font-weight:800;color:#fff;
           font-family:'JetBrains Mono',monospace;
@@ -655,8 +773,8 @@ function renderBaseMap(){
           ${stepNum}
         </div>`;
     } else if(isSelected){
-      // Selected but no route computed yet — plain red teardrop
-      iconHtml = `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#E03E3E;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`;
+      // Selected but no route computed yet — colored teardrop by status
+      iconHtml = `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${selColor};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div>`;
     } else {
       // Unselected — grey teardrop
       iconHtml = `<div style="width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#B9C4D4;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></div>`;
@@ -670,12 +788,38 @@ function renderBaseMap(){
     const popupLabel = (isSelected && hasRoute && stepNum)
       ? `<span style="background:#E03E3E;color:#fff;border-radius:5px;padding:1px 7px;font-weight:800;font-size:12px;margin-right:5px;">ลำดับที่ ${stepNum}</span>`
       : "";
-    const popup = `${popupLabel}<b>${escapeHtml(r.name)}</b><br><span style="font-size:11px;color:#666;">${escapeHtml(r.id)}</span><br>ระยะจาก กฟฟ.: ${fmtDist(r.distFromDepot)}`;
+    const popup = `${popupLabel}<b>${escapeHtml(firstName(r.name))}</b><br><span style="font-size:11px;color:#666;">${escapeHtml(r.id)}</span><br>ระยะจาก กฟฟ.: ${fmtDist(r.distFromDepot)}`;
 
     const m = L.marker([r.coord.lat, r.coord.lng], { icon })
       .bindPopup(popup);
     m.on('click', () => toggleSelect(r.id));
     markerLayer.addLayer(m);
+
+    // Floating name label above each marker
+    const nameLabelIcon = L.divIcon({
+      className: '',
+      html: `<div style="
+        display:inline-block;
+        background:rgba(255,255,255,0.88);
+        color:#1a2d4a;
+        padding:1px 6px;
+        border-radius:5px;
+        font-size:11px;
+        font-weight:600;
+        font-family:'Noto Sans Thai',sans-serif;
+        white-space:nowrap;
+        box-shadow:0 1px 3px rgba(0,0,0,0.18);
+        pointer-events:none;
+        border:1px solid rgba(0,0,0,0.08);
+        line-height:1.5;
+      ">${escapeHtml(firstName(r.name))}</div>`,
+      iconSize: null,
+      iconAnchor: [0, isSelected ? 36 : 26]
+    });
+    const nameLabel = L.marker([r.coord.lat, r.coord.lng], {
+      icon: nameLabelIcon, interactive: false, zIndexOffset: -200
+    });
+    markerLayer.addLayer(nameLabel);
   });
 }
 
